@@ -1,4 +1,5 @@
 # Ultralytics YOLO 🚀, AGPL-3.0 license
+# Hyunwook Chu custom head
 """Model head modules."""
 
 import copy
