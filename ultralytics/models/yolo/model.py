@@ -4,7 +4,7 @@ from pathlib import Path
 
 from ultralytics.engine.model import Model
 from ultralytics.models import yolo
-from ultralytics.nn.tasks import ClassificationModel, DetectionModel, OBBModel, PoseModel, SegmentationModel, WorldModel
+from ultralytics.nn.tasks import ClassificationModel, DetectionModel, OBBModel, PoseModel, SegmentationModel, WorldModel, DetectionModel_2_5 # HWCHU. DetectionModel_2_5 추가.
 from ultralytics.utils import ROOT, yaml_load
 
 
@@ -37,6 +37,13 @@ class YOLO(Model):
                 "trainer": yolo.detect.DetectionTrainer,
                 "validator": yolo.detect.DetectionValidator,
                 "predictor": yolo.detect.DetectionPredictor,
+            },
+            # HWCHU. detect_2_5 task 추가
+            "detect_2_5": {
+                "model": DetectionModel_2_5,
+                "trainer": yolo.detect.DetectionTrainer_2_5,
+                "validator": yolo.detect.DetectionValidator_2_5,
+                "predictor": yolo.detect.DetectionPredictor_2_5,
             },
             "segment": {
                 "model": SegmentationModel,

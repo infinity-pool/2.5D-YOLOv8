@@ -69,7 +69,7 @@ from .conv import (
     RepConv,
     SpatialAttention,
 )
-from .head import OBB, Classify, Detect, Pose, RTDETRDecoder, Segment, WorldDetect, v10Detect
+from .head import OBB, Classify, Detect, Detect_2_5, Pose, RTDETRDecoder, Segment, WorldDetect, v10Detect # HWCHU. Detect_2_5 추가
 from .transformer import (
     AIFI,
     MLP,
@@ -119,6 +119,7 @@ __all__ = (
     "BottleneckCSP",
     "Proto",
     "Detect",
+    "Detect_2_5", # HWCHU
     "Segment",
     "Pose",
     "Classify",

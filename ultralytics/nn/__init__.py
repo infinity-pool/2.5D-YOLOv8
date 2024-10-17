@@ -4,6 +4,7 @@ from .tasks import (
     BaseModel,
     ClassificationModel,
     DetectionModel,
+    DetectionModel_2_5, # HWCHU
     SegmentationModel,
     attempt_load_one_weight,
     attempt_load_weights,
@@ -23,6 +24,7 @@ __all__ = (
     "guess_model_scale",
     "torch_safe_load",
     "DetectionModel",
+    "DetectionModel_2_5", # HWCHU
     "SegmentationModel",
     "ClassificationModel",
     "BaseModel",

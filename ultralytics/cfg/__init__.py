@@ -31,9 +31,10 @@ from ultralytics.utils import (
 
 # Define valid tasks and modes
 MODES = {"train", "val", "predict", "export", "track", "benchmark"}
-TASKS = {"detect", "segment", "classify", "pose", "obb"}
+TASKS = {"detect", "detect_2_5", "segment", "classify", "pose", "obb"} # HWCHU.
 TASK2DATA = {
     "detect": "coco8.yaml",
+    "detect_2_5": "nuScenes_2_5.yaml", # HWCHU. nuScenes_2_5.yaml 완성했나요?? 데이터셋 완료되면 yaml도 완성해야합니다.
     "segment": "coco8-seg.yaml",
     "classify": "imagenet10",
     "pose": "coco8-pose.yaml",
@@ -41,6 +42,7 @@ TASK2DATA = {
 }
 TASK2MODEL = {
     "detect": "yolov8n.pt",
+    "detect_2_5": "yolov8n.pt", # HWCHU. 수정 필요.
     "segment": "yolov8n-seg.pt",
     "classify": "yolov8n-cls.pt",
     "pose": "yolov8n-pose.pt",
@@ -48,6 +50,7 @@ TASK2MODEL = {
 }
 TASK2METRIC = {
     "detect": "metrics/mAP50-95(B)",
+    "detect_2_5": "metrics/mAP50-95(B)", # HWCHU. 수정 필요.
     "segment": "metrics/mAP50-95(M)",
     "classify": "metrics/accuracy_top1",
     "pose": "metrics/mAP50-95(P)",
