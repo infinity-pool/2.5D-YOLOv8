@@ -207,14 +207,16 @@ class Detect_2_5(nn.Module):
         
         for i in range(self.nl):
             x[i] = torch.cat((self.cv2[i](x[i]), self.cv3[i](x[i])), 1)
-        print(f'x[0].shape : {x[0].shape}')
-        print(f'x[1].shape : {x[1].shape}')
-        print(f'x[2].shape : {x[2].shape}')
+        print(f'x[0].shape : {x[0].shape}') # HWCHU
+        print(f'x[1].shape : {x[1].shape}') # HWCHU
+        print(f'x[2].shape : {x[2].shape}') # HWCHU
         if self.training:  # Training path
-            print("Detect_2_5 forward END!!") # HWCHU
+            print("Detect_2_5 forward END!!(training)") # HWCHU
             return x
-        y = self._inference(x)
-        print("Detect_2_5 forward END!!") # HWCHU
+        # y = self._inference(x)
+        y = self._inference_2_5(x) # HWCHU. x[0], [1], [2]의 shape이 각각 Detect에선 [1, 144, 80, 60], [1, 144, 40, 30], [1, 144, 20, 15] 이었는데, Detect_2_5에선 달라질 것이므로 수정되어야 함
+        print("Detect_2_5 forward END!!(not training)") # HWCHU
+        print(f'y.shape : {y.shape}')
         return y if self.export else (y, x)
 
     def forward_end2end(self, x):
@@ -268,6 +270,40 @@ class Detect_2_5(nn.Module):
             dbox = self.decode_bboxes(self.dfl(box), self.anchors.unsqueeze(0)) * self.strides
 
         return torch.cat((dbox, cls.sigmoid()), 1)
+    
+
+    '''HWCHU. _inference_2_5'''
+    def _inference_2_5(self, x):
+        """Decode predicted bounding boxes and class probabilities based on multiple-level feature maps."""
+        # Inference path
+        shape = x[0].shape  # BCHW # HWCHU. torch.Size([1, 144, 80, 80]) 또는 [1, 144, 80, 60]
+        x_cat = torch.cat([xi.view(shape[0], self.no, -1) for xi in x], 2) # HWCHU. shape: [1, 144, 8400] 또는 [1, 144, 6300]
+        if self.dynamic or self.shape != shape: # HWCHU. inference 시에 self.shape 초기화 안돼서 여기 들어온다.
+            self.anchors, self.strides = (x.transpose(0, 1) for x in make_anchors(x, self.stride, 0.5))
+            self.shape = shape
+
+        if self.export and self.format in {"saved_model", "pb", "tflite", "edgetpu", "tfjs"}:  # avoid TF FlexSplitV ops
+            box = x_cat[:, : self.reg_max * 4]
+            cls = x_cat[:, self.reg_max * 4 :]
+        else: # HWCHU. Inference할 때 여기로 들어온다.
+            box, cls = x_cat.split((self.reg_max * 4, self.nc), 1) # HWCHU. ex) 144를 64, 80으로 쪼갬
+            # HWCHU. 즉, box.shape : [1, 64, 8400], cls.shape : [1, 80, 8400]
+
+        if self.export and self.format in {"tflite", "edgetpu"}:
+            # Precompute normalization factor to increase numerical stability
+            # See https://github.com/ultralytics/ultralytics/issues/7371
+            grid_h = shape[2]
+            grid_w = shape[3]
+            grid_size = torch.tensor([grid_w, grid_h, grid_w, grid_h], device=box.device).reshape(1, 4, 1)
+            norm = self.strides / (self.stride[0] * grid_size)
+            dbox = self.decode_bboxes(self.dfl(box) * norm, self.anchors.unsqueeze(0) * norm[:, :2])
+        else:
+            print(f'- box.shape : {box.shape}') # HWCHU
+            print(f'- self.dfl(box).shape : {self.dfl(box).shape}') # HWCHU
+            dbox = self.decode_bboxes(self.dfl(box), self.anchors.unsqueeze(0)) * self.strides
+
+        return torch.cat((dbox, cls.sigmoid()), 1)
+    
 
     def bias_init(self):
         """Initialize Detect() biases, WARNING: requires stride availability."""
