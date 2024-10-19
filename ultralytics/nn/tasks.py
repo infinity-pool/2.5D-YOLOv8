@@ -437,7 +437,8 @@ class DetectionModel_2_5(BaseModel):
                     return self.forward(x)["one2many"]
                 return self.forward(x)[0] if isinstance(m, (Segment, Pose, OBB)) else self.forward(x)
 
-            m.stride = torch.tensor([s / x.shape[-2] for x in _forward(torch.zeros(1, ch, s, s))])  # forward
+            # m.stride = torch.tensor([s / x.shape[-2] for x in _forward(torch.zeros(1, ch, s, s))])  # forward
+            m.stride = torch.tensor([s / x.shape[-2] for x in _forward(torch.zeros(1, ch, s, s))[0]])  # forward # HWCHU. Detect_2_5의 output을 x에서 (x, x_dist)로 바꿨으니 이것도 바꿔야 함
             self.stride = m.stride
             m.bias_init()  # only run once
         else:
