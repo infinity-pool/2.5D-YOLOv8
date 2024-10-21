@@ -194,9 +194,12 @@ class Detect_2_5(nn.Module):
         )
         self.cv3 = nn.ModuleList(nn.Sequential(Conv(x, c3, 3), Conv(c3, c3, 3), nn.Conv2d(c3, self.nc, 1)) for x in ch)
         # HWCHU. self.cv2와 구조 유사하게 out channel이 1인 모듈 cv4. dist 정보를 예측하는 역할을 한다.
+        # self.cv4 = nn.ModuleList(
+        #     nn.Sequential(Conv(x, c2, 3), Conv(c2, c2, 3), nn.Conv2d(c2, 1, 1)) for x in ch
+        # ) # HWCHU
         self.cv4 = nn.ModuleList(
-            nn.Sequential(Conv(x, c2, 3), Conv(c2, c2, 3), nn.Conv2d(c2, 1, 1)) for x in ch
-        ) # HWCHU
+            nn.Sequential(Conv(x, c2, 3), Conv(c2, c2, 3), nn.Conv2d(c2, 1, 1), nn.ReLU()) for x in ch
+        ) # HWCHU. cv4에 ReLU 써서 양수로 고정.
         self.dfl = DFL(self.reg_max) if self.reg_max > 1 else nn.Identity()
 
         if self.end2end:
@@ -211,7 +214,8 @@ class Detect_2_5(nn.Module):
         x_dist = [None] * self.nl # HWCHU. dist를 처리하기 위해 만든 tensor list. self.nl 개의 tensor 존재
         
         for i in range(self.nl):
-            x_dist[i] = self.cv4[i](x[i]) # HWCHU. dist 처리를 위한 tensor 준비
+            # x_dist[i] = self.cv4[i](x[i]) # HWCHU. dist 처리를 위한 tensor 준비
+            x_dist[i] = self.cv4[i](x[i]) * 50 # HWCHU. dist 처리를 위한 tensor 준비. 스케일링 factor 곱함
             x[i] = torch.cat((self.cv2[i](x[i]), self.cv3[i](x[i])), 1)
 
         # print(f'x[0].shape, x_dist[0].shape : {x[0].shape} {x_dist[0].shape}') # HWCHU. 예) [1, 144, 80, 60], [1, 1, 80, 60]
@@ -277,37 +281,6 @@ class Detect_2_5(nn.Module):
             dbox = self.decode_bboxes(self.dfl(box), self.anchors.unsqueeze(0)) * self.strides
 
         return torch.cat((dbox, cls.sigmoid()), 1)
-    
-
-    # '''HWCHU. _inference_2_5'''
-    # def _inference_2_5(self, x):
-    #     """Decode predicted bounding boxes and class probabilities based on multiple-level feature maps."""
-    #     # Inference path
-    #     shape = x[0].shape  # BCHW # HWCHU. torch.Size([1, 144, 80, 80]) 또는 [1, 144, 80, 60]
-    #     x_cat = torch.cat([xi.view(shape[0], self.no, -1) for xi in x], 2) # HWCHU. shape: [1, 144, 8400] 또는 [1, 144, 6300]
-    #     if self.dynamic or self.shape != shape: # HWCHU. inference 시에 self.shape 초기화 안돼서 여기 들어온다.
-    #         self.anchors, self.strides = (x.transpose(0, 1) for x in make_anchors(x, self.stride, 0.5))
-    #         self.shape = shape
-
-    #     if self.export and self.format in {"saved_model", "pb", "tflite", "edgetpu", "tfjs"}:  # avoid TF FlexSplitV ops
-    #         box = x_cat[:, : self.reg_max * 4]
-    #         cls = x_cat[:, self.reg_max * 4 :]
-    #     else: # HWCHU. Inference할 때 여기로 들어온다.
-    #         box, cls = x_cat.split((self.reg_max * 4, self.nc), 1) # HWCHU. ex) 144를 64, 80으로 쪼갬
-    #         # HWCHU. 즉, box.shape : [1, 64, 8400], cls.shape : [1, 80, 8400]
-
-    #     if self.export and self.format in {"tflite", "edgetpu"}:
-    #         # Precompute normalization factor to increase numerical stability
-    #         # See https://github.com/ultralytics/ultralytics/issues/7371
-    #         grid_h = shape[2]
-    #         grid_w = shape[3]
-    #         grid_size = torch.tensor([grid_w, grid_h, grid_w, grid_h], device=box.device).reshape(1, 4, 1)
-    #         norm = self.strides / (self.stride[0] * grid_size)
-    #         dbox = self.decode_bboxes(self.dfl(box) * norm, self.anchors.unsqueeze(0) * norm[:, :2])
-    #     else:
-    #         dbox = self.decode_bboxes(self.dfl(box), self.anchors.unsqueeze(0)) * self.strides
-
-    #     return torch.cat((dbox, cls.sigmoid()), 1)
     
 
     def bias_init(self):

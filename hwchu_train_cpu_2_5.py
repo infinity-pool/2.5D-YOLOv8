@@ -5,7 +5,7 @@ model_path = 'yolov8m.pt'
 model = YOLO("yolov8m_2_5.yaml", task="detect_2_5").load(model_path)
 device = 'cpu'
 
-results = model.train(epochs=5, device=device, data="nuScenes_2_5.yaml") # nuScenes_2_5.yaml training
+results = model.train(epochs=10, device=device, data="nuScenes_2_5.yaml") # nuScenes_2_5.yaml training
 # results = model.train(epochs=5, device=device, data="coco8.yaml") # coco8.yaml training
 
 # print('[results[0].boxes.data.shape]')

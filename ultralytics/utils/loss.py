@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 from ultralytics.utils.metrics import OKS_SIGMA
 from ultralytics.utils.ops import crop_mask, xywh2xyxy, xyxy2xywh
-from ultralytics.utils.tal import RotatedTaskAlignedAssigner, TaskAlignedAssigner, dist2bbox, dist2rbox, make_anchors
+from ultralytics.utils.tal import RotatedTaskAlignedAssigner, TaskAlignedAssigner, TaskAlignedAssigner_2_5, dist2bbox, dist2rbox, make_anchors # HWCHU. TaskAlignedAssigner_2_5 추가
 from ultralytics.utils.torch_utils import autocast
 
 from .metrics import bbox_iou, probiou
@@ -111,6 +111,26 @@ class BboxLoss(nn.Module):
             loss_dfl = torch.tensor(0.0).to(pred_dist.device)
 
         return loss_iou, loss_dfl
+
+
+'''HWCHU. DistLoss(nn.Module)'''
+class DistLoss(nn.Module):
+    """Criterion class for computing training losses during training."""
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, pred_dists, target_dists, target_scores, target_scores_sum, fg_mask):
+        """IoU loss."""
+        weight = target_scores.sum(-1)[fg_mask].unsqueeze(-1) * 10
+
+        # HWCHU. 우선 weighted MSE Loss로 loss 계산. loss 함수에 대한 부분 더 고민해야함.
+        pred_dist_fg = pred_dists[fg_mask] / 50
+        target_dist_fg = target_dists[fg_mask] / 50
+        loss_dist = ((pred_dist_fg - target_dist_fg) ** 2) * weight
+        loss_dist = loss_dist.sum() / target_scores_sum
+
+        return loss_dist
 
 
 class RotatedBboxLoss(BboxLoss):
@@ -278,8 +298,10 @@ class v8DetectionLoss_2_5:
 
         self.use_dfl = m.reg_max > 1
 
-        self.assigner = TaskAlignedAssigner(topk=tal_topk, num_classes=self.nc, alpha=0.5, beta=6.0)
+        # self.assigner = TaskAlignedAssigner(topk=tal_topk, num_classes=self.nc, alpha=0.5, beta=6.0)
+        self.assigner = TaskAlignedAssigner_2_5(topk=tal_topk, num_classes=self.nc, alpha=0.5, beta=6.0) # HWCHU. detect_2_5에 맞는 assigner 새로 정의 후 사용
         self.bbox_loss = BboxLoss(m.reg_max).to(device)
+        self.dist_loss = DistLoss().to(device) # HWCHU. 
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
 
     def preprocess(self, targets, batch_size, scale_tensor):
@@ -312,12 +334,11 @@ class v8DetectionLoss_2_5:
     def __call__(self, preds, batch): # HWCHU. 원래 train시엔, preds로 x만 들어왔는데, 지금은 loss계산 시 x, x_dist 2개가 들어온다. 또 validate 시엔 원래 y, x인데 지금은 y, x, y_dist, x_dist가 들어온다.
         '''HWCHU. 기존 loss 계산은 preds로 똑같이 계산하도록 하고, 내가 추가한 x_dist에 대해서는 그 부분을 분리해줄 수 있도록 하는 코드 추가함'''
         if len(preds) == 2: # HWCHU
-            preds_dists = preds[1] # HWCHU. x_dist
+            feats_dists = preds[1] # HWCHU. x_dist
             preds = preds[0] # HWCHU. x
         elif len(preds) == 4: # HWCHU
-            preds_dists = preds[3] # HWCHU. x_dist. 이 부분 y_dist는 필요없는지 잘 확인해봐야 한다. validate 시 x_dist만으로 loss 계산해도 되는지?
+            feats_dists = preds[3] # HWCHU. x_dist. 이 부분 y_dist는 필요없는지 잘 확인해봐야 한다. validate 시 x_dist만으로 loss 계산해도 되는지?
             preds = preds[:2] # HWCHU. y, x
-
         # HWCHU. batch.keys() == ['im_file', 'ori_shape', 'resized_shape', 'img', 'cls', 'bboxes', 'dists', 'batch_idx']
 
         """Calculate the sum of the loss for box, cls and dfl multiplied by batch size."""
@@ -326,10 +347,12 @@ class v8DetectionLoss_2_5:
         feats = preds[1] if isinstance(preds, tuple) else preds
         pred_distri, pred_scores = torch.cat([xi.view(feats[0].shape[0], self.no, -1) for xi in feats], 2).split(
             (self.reg_max * 4, self.nc), 1
-        )
+        ) # HWCHU. i.e) shape(4, 64, 8400), shape(4, 80, 8400)
+        pred_dists = torch.cat([xi.view(feats_dists[0].shape[0], 1, -1) for xi in feats_dists], 2) # HWCHU. x_dist(feats_dists)를 pred_dists로 변형 i.e) shape (4, 1, 8400)
 
         pred_scores = pred_scores.permute(0, 2, 1).contiguous()
         pred_distri = pred_distri.permute(0, 2, 1).contiguous()
+        pred_dists = pred_dists.permute(0, 2, 1).contiguous() # HWCHU. preds_dists도 위의 tensor들처럼 똑같이 permute
 
         dtype = pred_scores.dtype
         batch_size = pred_scores.shape[0]
@@ -337,20 +360,33 @@ class v8DetectionLoss_2_5:
         anchor_points, stride_tensor = make_anchors(feats, self.stride, 0.5)
 
         # Targets
-        targets = torch.cat((batch["batch_idx"].view(-1, 1), batch["cls"].view(-1, 1), batch["bboxes"]), 1)
+        # targets = torch.cat((batch["batch_idx"].view(-1, 1), batch["cls"].view(-1, 1), batch["bboxes"]), 1)
+        dists = batch['dists'].unsqueeze(1) if batch['dists'] is not None else torch.zeros((batch["bboxes"].shape[0], 1), device=batch["bboxes"].device) # HWCHU. 아래에 넣기 위해 shape을 맞춰준다.
+        targets = torch.cat((batch["batch_idx"].view(-1, 1), batch["cls"].view(-1, 1), batch["bboxes"], dists), 1) # HWCHU. targets에 dists 정보도 들어가야 한다.
         targets = self.preprocess(targets.to(self.device), batch_size, scale_tensor=imgsz[[1, 0, 1, 0]])
-        gt_labels, gt_bboxes = targets.split((1, 4), 2)  # cls, xyxy
+        # gt_labels, gt_bboxes = targets.split((1, 4), 2)  # cls, xyxy
+        gt_labels, gt_bboxes, gt_dists = targets.split((1, 4, 1), 2)  # HWCHU. cls, xyxy, dist i.e) shape(4, 10, 1), (4, 10, 4), (4, 10, 1)
         mask_gt = gt_bboxes.sum(2, keepdim=True).gt_(0.0)
 
         # Pboxes
         pred_bboxes = self.bbox_decode(anchor_points, pred_distri)  # xyxy, (b, h*w, 4)
 
-        _, target_bboxes, target_scores, fg_mask, _ = self.assigner(
+        # _, target_bboxes, target_scores, fg_mask, _ = self.assigner(
+        #     pred_scores.detach().sigmoid(),
+        #     (pred_bboxes.detach() * stride_tensor).type(gt_bboxes.dtype),
+        #     anchor_points * stride_tensor,
+        #     gt_labels,
+        #     gt_bboxes,
+        #     mask_gt,
+        # )
+        _, target_bboxes, target_scores, fg_mask, _, target_dists = self.assigner( # HWCHU. target_dists 도 return 하도록 assigner의 forward 수정 필요.
             pred_scores.detach().sigmoid(),
             (pred_bboxes.detach() * stride_tensor).type(gt_bboxes.dtype),
+            pred_dists.detach(), # HWCHU. !!!! 우선 아무 처리도 하지 않고 arg로 넘김.
             anchor_points * stride_tensor,
             gt_labels,
             gt_bboxes,
+            gt_dists, # HWCHU. gt_dists도 활용해서 처리하도록 추가.
             mask_gt,
         )
 
@@ -367,9 +403,34 @@ class v8DetectionLoss_2_5:
                 pred_distri, pred_bboxes, anchor_points, target_bboxes, target_scores, target_scores_sum, fg_mask
             )
 
+        # HWCHU. dist loss 직접 생성, 테스트하며 학습 잘 되나 확인
+        loss[3] = self.dist_loss(
+            pred_dists, target_dists, target_scores, target_scores_sum, fg_mask
+        ) # HWCHU. dist에 대한 loss 계산
+        # print(f'- pred_distri.shape : {pred_distri.shape}')
+        # print(f'- pred_bboxes.shape : {pred_bboxes.shape}')
+        # print(f'- anchor_points.shape : {anchor_points.shape}')
+        # print(f'- target_bboxes.shape : {target_bboxes.shape}')
+        # print(f'- target_scores.shape : {target_scores.shape}')
+        # print(f'- target_scores_sum.shape : {target_scores_sum.shape}')
+        # print(f'- fg_mask.shape : {fg_mask.shape}')
+        # print(fg_mask.sum().item())
+        # print(pred_dists.shape)
+        # print(target_dists.shape)
+        # exit()
+
+
         loss[0] *= self.hyp.box  # box gain
         loss[1] *= self.hyp.cls  # cls gain
         loss[2] *= self.hyp.dfl  # dfl gain
+        loss[3] *= self.hyp.dist # HWCHU. dist gain
+
+        print(loss)
+        print(self.hyp.box)
+        print(self.hyp.cls)
+        print(self.hyp.dfl)
+        print(self.hyp.dist)
+        # exit()
 
         return loss.sum() * batch_size, loss.detach()  # loss(box, cls, dfl)
 
