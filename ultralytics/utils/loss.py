@@ -361,7 +361,11 @@ class v8DetectionLoss_2_5:
 
         # Targets
         # targets = torch.cat((batch["batch_idx"].view(-1, 1), batch["cls"].view(-1, 1), batch["bboxes"]), 1)
-        dists = batch['dists'].unsqueeze(1) if batch['dists'] is not None else torch.zeros((batch["bboxes"].shape[0], 1), device=batch["bboxes"].device) # HWCHU. 아래에 넣기 위해 shape을 맞춰준다.
+        dists = (
+            batch['dists'].unsqueeze(1).to(batch["bboxes"].device)
+            if batch['dists'] is not None 
+            else torch.zeros((batch["bboxes"].shape[0], 1), device=batch["bboxes"].device)
+        ) # HWCHU. 아래에 넣기 위해 shape을 맞춰준다.
         targets = torch.cat((batch["batch_idx"].view(-1, 1), batch["cls"].view(-1, 1), batch["bboxes"], dists), 1) # HWCHU. targets에 dists 정보도 들어가야 한다.
         targets = self.preprocess(targets.to(self.device), batch_size, scale_tensor=imgsz[[1, 0, 1, 0]])
         # gt_labels, gt_bboxes = targets.split((1, 4), 2)  # cls, xyxy
