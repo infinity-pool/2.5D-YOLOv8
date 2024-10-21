@@ -7,12 +7,12 @@ from copy import copy
 import numpy as np
 import torch.nn as nn
 
-from ultralytics.data import build_dataloader, build_yolo_dataset
+from ultralytics.data import build_dataloader, build_yolo_dataset, build_yolo_dataset_2_5 # HWCHU. build_yolo_dataset_2_5 추가
 from ultralytics.engine.trainer import BaseTrainer
 from ultralytics.models import yolo
 from ultralytics.nn.tasks import DetectionModel, DetectionModel_2_5 # HWCHU. DetectionModel_2_5 추가
 from ultralytics.utils import LOGGER, RANK
-from ultralytics.utils.plotting import plot_images, plot_labels, plot_results
+from ultralytics.utils.plotting import plot_images, plot_labels, plot_labels_2_5, plot_results # HWCHU. plot_labels_2_5 추가
 from ultralytics.utils.torch_utils import de_parallel, torch_distributed_zero_first
 
 
@@ -158,6 +158,7 @@ class DetectionTrainer_2_5(BaseTrainer):
         ```
     """
 
+    # HWCHU. 이걸 새로운 dataset format에 맞춰서 수정해줘야 함.
     def build_dataset(self, img_path, mode="train", batch=None):
         """
         Build YOLO Dataset.
@@ -168,8 +169,10 @@ class DetectionTrainer_2_5(BaseTrainer):
             batch (int, optional): Size of batches, this is for `rect`. Defaults to None.
         """
         gs = max(int(de_parallel(self.model).stride.max() if self.model else 0), 32)
-        return build_yolo_dataset(self.args, img_path, batch, self.data, mode=mode, rect=mode == "val", stride=gs)
+        # return build_yolo_dataset(self.args, img_path, batch, self.data, mode=mode, rect=mode == "val", stride=gs)
+        return build_yolo_dataset_2_5(self.args, img_path, batch, self.data, mode=mode, rect=mode == "val", stride=gs) # HWCHU. detect_2_5에 맞게 dataset을 build하도록.
 
+    # HWCHU. 이걸 새로운 dataset format에 맞춰서 수정해줘야 함.
     def get_dataloader(self, dataset_path, batch_size=16, rank=0, mode="train"):
         """Construct and return dataloader."""
         assert mode in {"train", "val"}, f"Mode must be 'train' or 'val', not {mode}."
@@ -265,8 +268,11 @@ class DetectionTrainer_2_5(BaseTrainer):
         """Plots metrics from a CSV file."""
         plot_results(file=self.csv, on_plot=self.on_plot)  # save results.png
 
+    # HWCHU. detect_2_5에 맞게 수정해줘야 할 것.
     def plot_training_labels(self):
         """Create a labeled training plot of the YOLO model."""
         boxes = np.concatenate([lb["bboxes"] for lb in self.train_loader.dataset.labels], 0)
         cls = np.concatenate([lb["cls"] for lb in self.train_loader.dataset.labels], 0)
-        plot_labels(boxes, cls.squeeze(), names=self.data["names"], save_dir=self.save_dir, on_plot=self.on_plot)
+        dists = np.concatenate([lb["dists"] for lb in self.train_loader.dataset.labels], 0) # HWCHU. dists에 대한 것도 뽑아줌.
+        # plot_labels(boxes, cls.squeeze(), names=self.data["names"], save_dir=self.save_dir, on_plot=self.on_plot)
+        plot_labels_2_5(boxes, cls.squeeze(), dists, names=self.data["names"], save_dir=self.save_dir, on_plot=self.on_plot) # HWCHU. detect_2_5에 맞는 plotting 필요

@@ -208,7 +208,7 @@ class Instances:
         This class does not perform input validation, and it assumes the inputs are well-formed.
     """
 
-    def __init__(self, bboxes, segments=None, keypoints=None, bbox_format="xywh", normalized=True) -> None:
+    def __init__(self, bboxes, segments=None, keypoints=None, bbox_format="xywh", normalized=True, dists=None) -> None: # HWCHU. dists 추가
         """
         Args:
             bboxes (ndarray): bboxes with shape [N, 4].
@@ -216,6 +216,7 @@ class Instances:
             keypoints (ndarray): keypoints(x, y, visible) with shape [N, 17, 3].
         """
         self._bboxes = Bboxes(bboxes=bboxes, format=bbox_format)
+        self.dists = dists # HWCHU. 추가
         self.keypoints = keypoints
         self.normalized = normalized
         self.segments = segments
@@ -293,6 +294,7 @@ class Instances:
         segments = self.segments[index] if len(self.segments) else self.segments
         keypoints = self.keypoints[index] if self.keypoints is not None else None
         bboxes = self.bboxes[index]
+        dists = self.dists[index] if self.dists is not None else None # HWCHU. 추가
         bbox_format = self._bboxes.format
         return Instances(
             bboxes=bboxes,
@@ -300,6 +302,7 @@ class Instances:
             keypoints=keypoints,
             bbox_format=bbox_format,
             normalized=self.normalized,
+            dists=dists, # HWCHU. 추가
         )
 
     def flipud(self, h):
@@ -347,6 +350,7 @@ class Instances:
         good = self.bbox_areas > 0
         if not all(good):
             self._bboxes = self._bboxes[good]
+            self.dists = self.dists[good] if self.dists is not None else self.dists # HWCHU. dists도 성공적으로 걸러지도록 처리
             if len(self.segments):
                 self.segments = self.segments[good]
             if self.keypoints is not None:
@@ -366,7 +370,7 @@ class Instances:
         return len(self.bboxes)
 
     @classmethod
-    def concatenate(cls, instances_list: List["Instances"], axis=0) -> "Instances":
+    def concatenate(cls, instances_list: List["Instances"], axis=0) -> "Instances": # HWCHU. detect_2_5에 맞게 수정
         """
         Concatenates a list of Instances objects into a single Instances object.
 
@@ -396,9 +400,11 @@ class Instances:
         normalized = instances_list[0].normalized
 
         cat_boxes = np.concatenate([ins.bboxes for ins in instances_list], axis=axis)
+        cat_dists = None if any(ins.dists is None for ins in instances_list) else np.concatenate([ins.dists for ins in instances_list], axis=axis) # HWCHU.
         cat_segments = np.concatenate([b.segments for b in instances_list], axis=axis)
         cat_keypoints = np.concatenate([b.keypoints for b in instances_list], axis=axis) if use_keypoint else None
-        return cls(cat_boxes, cat_segments, cat_keypoints, bbox_format, normalized)
+        # return cls(cat_boxes, cat_segments, cat_keypoints, bbox_format, normalized)
+        return cls(cat_boxes, cat_segments, cat_keypoints, bbox_format, normalized, dists=cat_dists) # HWCHU. cat_dists 추가
 
     @property
     def bboxes(self):

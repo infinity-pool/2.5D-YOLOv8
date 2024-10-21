@@ -1237,13 +1237,15 @@ class RandomPerspective:
 
         segments = instances.segments
         keypoints = instances.keypoints
+        dists = instances.dists # HWCHU. 추가
         # Update bboxes if there are segments.
         if len(segments):
             bboxes, segments = self.apply_segments(segments, M)
 
         if keypoints is not None:
             keypoints = self.apply_keypoints(keypoints, M)
-        new_instances = Instances(bboxes, segments, keypoints, bbox_format="xyxy", normalized=False)
+        # new_instances = Instances(bboxes, segments, keypoints, bbox_format="xyxy", normalized=False)
+        new_instances = Instances(bboxes, segments, keypoints, bbox_format="xyxy", normalized=False, dists=dists) # HWCHU. dists 추가
         # Clip
         new_instances.clip(*self.size)
 
@@ -2038,6 +2040,7 @@ class Format:
         labels["img"] = self._format_img(img)
         labels["cls"] = torch.from_numpy(cls) if nl else torch.zeros(nl)
         labels["bboxes"] = torch.from_numpy(instances.bboxes) if nl else torch.zeros((nl, 4))
+        labels["dists"] = torch.from_numpy(instances.dists) if instances.dists is not None else torch.zeros((nl, 1)) # HWCHU.
         if self.return_keypoint:
             labels["keypoints"] = torch.from_numpy(instances.keypoints)
             if self.normalize:
@@ -2257,6 +2260,8 @@ class RandomLoadText:
         return labels
 
 
+
+# HWCHU. YOLODataset_2_5의 build_transforms에서 self.augment이면 이거 불린다!
 def v8_transforms(dataset, imgsz, hyp, stretch=False):
     """
     Applies a series of image transformations for YOLOv8 training.

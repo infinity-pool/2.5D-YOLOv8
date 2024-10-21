@@ -2,7 +2,9 @@ from ultralytics import YOLO
 import cv2
 
 model_path = 'yolov8m.pt'
-best_model = YOLO("yolov8m_2_5.yaml", task="detect_2_5").load(model_path)
+# best_model = YOLO("yolov8m_2_5.yaml", task="detect_2_5").load(model_path) # TEST on detect pt model
+
+best_model = YOLO('./runs/detect_2_5/train33/weights/best.pt')
 
 print('- [FOR Inference]')
 results = best_model('./ultralytics/assets/bus.jpg')

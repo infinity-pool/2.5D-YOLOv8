@@ -101,6 +101,7 @@ class BaseModel(nn.Module):
         """
         if isinstance(x, dict):  # for cases of training and validating while training.
             return self.loss(x, *args, **kwargs)
+        print('ultralytics.nn.tasks.py의 BaseModel에서 forward 불리고 self.predict 수행..') # HWCHU. BaseModel의 forward가 어떤 일을 하고 있는지 알기 위함.
         return self.predict(x, *args, **kwargs)
 
     def predict(self, x, profile=False, visualize=False, augment=False, embed=None):
@@ -278,7 +279,6 @@ class BaseModel(nn.Module):
             batch (dict): Batch to compute loss on
             preds (torch.Tensor | List[torch.Tensor]): Predictions.
         """
-        print("loss() called!!") # HWCHU
         if getattr(self, "criterion", None) is None:
             self.criterion = self.init_criterion()
 
@@ -491,6 +491,23 @@ class DetectionModel_2_5(BaseModel):
         i = (y[-1].shape[-1] // g) * sum(4 ** (nl - 1 - x) for x in range(e))  # indices
         y[-1] = y[-1][..., i:]  # small
         return y
+
+    '''HWCHU. loss for DetectionModel_2_5'''
+    def loss(self, batch, preds=None):
+        """
+        Compute loss.
+
+        Args:
+            batch (dict): Batch to compute loss on
+            preds (torch.Tensor | List[torch.Tensor]): Predictions.
+        """
+        print("DetectionModel_2_5's loss() called!!") # HWCHU
+        if getattr(self, "criterion", None) is None:
+            self.criterion = self.init_criterion()
+        
+        # preds = self.forward(batch["img"]) if preds is None else preds
+        preds= self.forward(batch["img"]) if preds is None else preds # HWCHU. Detect_2_5의 forward output이 x라는 list에서 x, x_dist 로 tuple이 됨.
+        return self.criterion(preds, batch)
 
     def init_criterion(self):
         """Initialize the loss criterion for the DetectionModel."""

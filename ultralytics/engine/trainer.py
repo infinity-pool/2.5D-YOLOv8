@@ -354,7 +354,7 @@ class BaseTrainer:
             self.model.train()
             if RANK != -1:
                 self.train_loader.sampler.set_epoch(epoch)
-            pbar = enumerate(self.train_loader)
+            pbar = enumerate(self.train_loader) # HWCHU. '아래에서 pbar돌면서 batch 내에 dists도 추가'
             # Update dataloader attributes (optional)
             if epoch == (self.epochs - self.args.close_mosaic):
                 self._close_dataloader_mosaic()
@@ -382,7 +382,7 @@ class BaseTrainer:
                 # Forward
                 with autocast(self.amp):
                     batch = self.preprocess_batch(batch)
-                    self.loss, self.loss_items = self.model(batch)
+                    self.loss, self.loss_items = self.model(batch) # HWCHU. loss 계산 부분
                     if RANK != -1:
                         self.loss *= world_size
                     self.tloss = (
@@ -430,7 +430,7 @@ class BaseTrainer:
 
                 # Validation
                 if self.args.val or final_epoch or self.stopper.possible_stop or self.stop:
-                    self.metrics, self.fitness = self.validate()
+                    self.metrics, self.fitness = self.validate() # HWCHU. validate 부분
                 self.save_metrics(metrics={**self.label_loss_items(self.tloss), **self.metrics, **self.lr})
                 self.stop |= self.stopper(epoch + 1, self.fitness) or final_epoch
                 if self.args.time:

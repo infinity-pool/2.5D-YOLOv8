@@ -309,9 +309,20 @@ class v8DetectionLoss_2_5:
             # pred_dist = (pred_dist.view(b, a, c // 4, 4).softmax(2) * self.proj.type(pred_dist.dtype).view(1, 1, -1, 1)).sum(2)
         return dist2bbox(pred_dist, anchor_points, xywh=False)
 
-    def __call__(self, preds, batch):
+    def __call__(self, preds, batch): # HWCHU. 원래 train시엔, preds로 x만 들어왔는데, 지금은 loss계산 시 x, x_dist 2개가 들어온다. 또 validate 시엔 원래 y, x인데 지금은 y, x, y_dist, x_dist가 들어온다.
+        '''HWCHU. 기존 loss 계산은 preds로 똑같이 계산하도록 하고, 내가 추가한 x_dist에 대해서는 그 부분을 분리해줄 수 있도록 하는 코드 추가함'''
+        if len(preds) == 2: # HWCHU
+            preds_dists = preds[1] # HWCHU. x_dist
+            preds = preds[0] # HWCHU. x
+        elif len(preds) == 4: # HWCHU
+            preds_dists = preds[3] # HWCHU. x_dist. 이 부분 y_dist는 필요없는지 잘 확인해봐야 한다. validate 시 x_dist만으로 loss 계산해도 되는지?
+            preds = preds[:2] # HWCHU. y, x
+
+        # HWCHU. batch.keys() == ['im_file', 'ori_shape', 'resized_shape', 'img', 'cls', 'bboxes', 'dists', 'batch_idx']
+
         """Calculate the sum of the loss for box, cls and dfl multiplied by batch size."""
-        loss = torch.zeros(3, device=self.device)  # box, cls, dfl
+        # loss = torch.zeros(3, device=self.device)  # box, cls, dfl
+        loss = torch.zeros(4, device=self.device)  # HWCHU. box, cls, dfl, dist로 dist에 대한 loss도 추가
         feats = preds[1] if isinstance(preds, tuple) else preds
         pred_distri, pred_scores = torch.cat([xi.view(feats[0].shape[0], self.no, -1) for xi in feats], 2).split(
             (self.reg_max * 4, self.nc), 1
