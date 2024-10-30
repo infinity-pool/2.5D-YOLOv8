@@ -224,10 +224,14 @@ class DetectionTrainer_2_5(BaseTrainer):
 
     def get_validator(self):
         """Returns a DetectionValidator for YOLO model validation."""
-        self.loss_names = "box_loss", "cls_loss", "dfl_loss"
-        return yolo.detect.DetectionValidator(
+        # self.loss_names = "box_loss", "cls_loss", "dfl_loss"
+        self.loss_names = "box_loss", "cls_loss", "dfl_loss", "dist_loss" # HWCHU. "dist_loss" 추가
+        # return yolo.detect.DetectionValidator(
+        #     self.test_loader, save_dir=self.save_dir, args=copy(self.args), _callbacks=self.callbacks
+        # )
+        return yolo.detect.DetectionValidator_2_5(
             self.test_loader, save_dir=self.save_dir, args=copy(self.args), _callbacks=self.callbacks
-        )
+        ) # HWCHU. DetectionValidator_2_5
 
     def label_loss_items(self, loss_items=None, prefix="train"):
         """

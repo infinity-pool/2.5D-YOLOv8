@@ -1193,7 +1193,7 @@ class Results_2_5(SimpleClass):
                 dist = float(d_dist.dist) # HWCHU. dist를 float로 만들어줌
                 name = ("" if id is None else f"id:{id} ") + names[c]
                 # label = (f"{name} {conf:.2f}" if conf else name) if labels else None
-                label = (f"{name}/{conf:.2f}/{dist:.1f}" if conf else name) if labels else None # HWCHU. label에 'name, conf, dist'가 보이도록 바꿔.
+                label = (f"{name}/{conf:.2f}/{dist*100:.1f}" if conf else name) if labels else None # HWCHU. label에 'name, conf, dist'가 보이도록 바꿔.
                 box = d.xyxyxyxy.reshape(-1, 4, 2).squeeze() if is_obb else d.xyxy.squeeze()
                 annotator.box_label(
                     box,

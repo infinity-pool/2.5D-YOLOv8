@@ -266,6 +266,7 @@ class BaseDataset(Dataset):
     def __len__(self):
         """Returns the length of the labels list for the dataset."""
         return len(self.labels)
+        # return 1 # 이러면 batch 크기 1이라고 생각하고 1개만 리턴하고 끝남.
 
     def update_labels_info(self, label):
         """Custom your label format here."""

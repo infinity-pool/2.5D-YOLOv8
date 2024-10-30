@@ -122,13 +122,14 @@ class DistLoss(nn.Module):
 
     def forward(self, pred_dists, target_dists, target_scores, target_scores_sum, fg_mask):
         """IoU loss."""
-        weight = target_scores.sum(-1)[fg_mask].unsqueeze(-1) * 10
 
-        # HWCHU. 우선 weighted MSE Loss로 loss 계산. loss 함수에 대한 부분 더 고민해야함.
-        pred_dist_fg = pred_dists[fg_mask] / 50
-        target_dist_fg = target_dists[fg_mask] / 50
-        loss_dist = ((pred_dist_fg - target_dist_fg) ** 2) * weight
-        loss_dist = loss_dist.sum() / target_scores_sum
+        # HWCHU. 우선 MSE Loss로 loss 계산. loss 함수에 대한 부분 더 고민해야함.
+        # HWCHU. new version
+        print(f'pred_dists : {pred_dists}')
+        print(f'target_dists : {target_dists}')
+        print()
+        loss_dist = (pred_dists - target_dists) ** 2
+        loss_dist = loss_dist.mean()
 
         return loss_dist
 
@@ -436,7 +437,7 @@ class v8DetectionLoss_2_5:
         print(self.hyp.dist)
         # exit()
 
-        return loss.sum() * batch_size, loss.detach()  # loss(box, cls, dfl)
+        return loss.sum() * batch_size, loss.detach()  # loss(box, cls, dfl, dist) # HWCHU. dist loss 추가
 
 
 class v8SegmentationLoss(v8DetectionLoss):

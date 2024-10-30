@@ -198,8 +198,8 @@ class Detect_2_5(nn.Module):
         #     nn.Sequential(Conv(x, c2, 3), Conv(c2, c2, 3), nn.Conv2d(c2, 1, 1)) for x in ch
         # ) # HWCHU
         self.cv4 = nn.ModuleList(
-            nn.Sequential(Conv(x, c2, 3), Conv(c2, c2, 3), nn.Conv2d(c2, 1, 1), nn.ReLU()) for x in ch
-        ) # HWCHU. cv4에 ReLU 써서 양수로 고정.
+            nn.Sequential(Conv(x, c2, 3), Conv(c2, c2, 3), nn.Conv2d(c2, 1, 1), nn.Sigmoid()) for x in ch
+        ) # HWCHU. cv4에 Sigmoid 써서 0~1로 고정.
         self.dfl = DFL(self.reg_max) if self.reg_max > 1 else nn.Identity()
 
         if self.end2end:
@@ -214,8 +214,7 @@ class Detect_2_5(nn.Module):
         x_dist = [None] * self.nl # HWCHU. dist를 처리하기 위해 만든 tensor list. self.nl 개의 tensor 존재
         
         for i in range(self.nl):
-            # x_dist[i] = self.cv4[i](x[i]) # HWCHU. dist 처리를 위한 tensor 준비
-            x_dist[i] = self.cv4[i](x[i]) * 50 # HWCHU. dist 처리를 위한 tensor 준비. 스케일링 factor 곱함
+            x_dist[i] = self.cv4[i](x[i]) # HWCHU. dist 처리를 위한 tensor 준비
             x[i] = torch.cat((self.cv2[i](x[i]), self.cv3[i](x[i])), 1)
 
         # print(f'x[0].shape, x_dist[0].shape : {x[0].shape} {x_dist[0].shape}') # HWCHU. 예) [1, 144, 80, 60], [1, 1, 80, 60]

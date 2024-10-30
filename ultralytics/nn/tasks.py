@@ -505,8 +505,7 @@ class DetectionModel_2_5(BaseModel):
         if getattr(self, "criterion", None) is None:
             self.criterion = self.init_criterion()
         
-        # preds = self.forward(batch["img"]) if preds is None else preds
-        preds= self.forward(batch["img"]) if preds is None else preds # HWCHU. Detect_2_5의 forward output이 x라는 list에서 x, x_dist 로 tuple이 됨.
+        preds = self.forward(batch["img"]) if preds is None else preds # HWCHU. Detect_2_5의 forward output이 x라는 list에서 x, x_dist 로 tuple이 됨.
         return self.criterion(preds, batch)
 
     def init_criterion(self):
