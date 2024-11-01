@@ -10,7 +10,7 @@ from ultralytics.data import build_dataloader, build_yolo_dataset, converter
 from ultralytics.engine.validator import BaseValidator
 from ultralytics.utils import LOGGER, ops
 from ultralytics.utils.checks import check_requirements
-from ultralytics.utils.metrics import ConfusionMatrix, DetMetrics, box_iou
+from ultralytics.utils.metrics import ConfusionMatrix, DetMetrics, DetMetrics_2_5, box_iou # HWCHU. DetMetrics_2_5 추가
 from ultralytics.utils.plotting import output_to_target, plot_images
 
 
@@ -361,8 +361,10 @@ class DetectionValidator_2_5(BaseValidator):
         self.is_coco = False
         self.is_lvis = False
         self.class_map = None
-        self.args.task = "detect"
-        self.metrics = DetMetrics(save_dir=self.save_dir, on_plot=self.on_plot)
+        # self.args.task = "detect"
+        self.args.task = "detect_2_5" # HWCHU. task 변경
+        # self.metrics = DetMetrics(save_dir=self.save_dir, on_plot=self.on_plot)
+        self.metrics = DetMetrics_2_5(save_dir=self.save_dir, on_plot=self.on_plot) # HWCHU. metric을 DetMetrics_2_5로 수정
         self.iouv = torch.linspace(0.5, 0.95, 10)  # IoU vector for mAP@0.5:0.95
         self.niou = self.iouv.numel()
         self.lb = []  # for autolabelling
@@ -372,11 +374,13 @@ class DetectionValidator_2_5(BaseValidator):
                 "WARNING ⚠️ 'save_hybrid=True' will cause incorrect mAP.\n"
             )
 
+
     def preprocess(self, batch):
         """Preprocesses batch of images for YOLO training."""
         batch["img"] = batch["img"].to(self.device, non_blocking=True)
         batch["img"] = (batch["img"].half() if self.args.half else batch["img"].float()) / 255
-        for k in ["batch_idx", "cls", "bboxes"]:
+        # for k in ["batch_idx", "cls", "bboxes"]:
+        for k in ["batch_idx", "cls", "bboxes", "dists"]: # HWCHU. 'dists' 추가
             batch[k] = batch[k].to(self.device)
 
         if self.args.save_hybrid:
@@ -416,7 +420,16 @@ class DetectionValidator_2_5(BaseValidator):
 
     def postprocess(self, preds):
         """Apply Non-maximum suppression to prediction outputs."""
-        return ops.non_max_suppression(
+        # return ops.non_max_suppression(
+        #     preds,
+        #     self.args.conf,
+        #     self.args.iou,
+        #     labels=self.lb,
+        #     multi_label=True,
+        #     agnostic=self.args.single_cls or self.args.agnostic_nms,
+        #     max_det=self.args.max_det,
+        # )
+        return ops.non_max_suppression_2_5( # HWCHU. non_max_suppression_2_5로 수정. return이 1개(preds)에서 2개(preds, preds_dists)가 됨.
             preds,
             self.args.conf,
             self.args.iou,
@@ -431,13 +444,15 @@ class DetectionValidator_2_5(BaseValidator):
         idx = batch["batch_idx"] == si
         cls = batch["cls"][idx].squeeze(-1)
         bbox = batch["bboxes"][idx]
+        dist = batch['dists'][idx] # HWCHU. dist 추가. GT임.
         ori_shape = batch["ori_shape"][si]
         imgsz = batch["img"].shape[2:]
         ratio_pad = batch["ratio_pad"][si]
         if len(cls):
             bbox = ops.xywh2xyxy(bbox) * torch.tensor(imgsz, device=self.device)[[1, 0, 1, 0]]  # target boxes
             ops.scale_boxes(imgsz, bbox, ori_shape, ratio_pad=ratio_pad)  # native-space labels
-        return {"cls": cls, "bbox": bbox, "ori_shape": ori_shape, "imgsz": imgsz, "ratio_pad": ratio_pad}
+        # return {"cls": cls, "bbox": bbox, "ori_shape": ori_shape, "imgsz": imgsz, "ratio_pad": ratio_pad}
+        return {"cls": cls, "bbox": bbox, "ori_shape": ori_shape, "imgsz": imgsz, "ratio_pad": ratio_pad, "dist" : dist} # HWCHU. dist 추가
 
     def _prepare_pred(self, pred, pbatch):
         """Prepares a batch of images and annotations for validation."""
@@ -447,9 +462,13 @@ class DetectionValidator_2_5(BaseValidator):
         )  # native-space pred
         return predn
 
-    def update_metrics(self, preds, batch):
+    def update_metrics(self, preds, batch): # HWCHU. preds로 preds, preds_dists 들어옴
+        preds_dists = preds[1] # HWCHU. 처리
+        preds = preds[0] # HWCHU. 처리
+
         """Metrics."""
-        for si, pred in enumerate(preds):
+        # for si, pred in enumerate(preds):
+        for si, (pred, preds_dist) in enumerate(zip(preds, preds_dists)): # HWCHU. preds_dists도 함께 순회
             self.seen += 1
             npr = len(pred)
             stat = dict(
@@ -458,10 +477,12 @@ class DetectionValidator_2_5(BaseValidator):
                 tp=torch.zeros(npr, self.niou, dtype=torch.bool, device=self.device),
             )
             pbatch = self._prepare_batch(si, batch)
-            cls, bbox = pbatch.pop("cls"), pbatch.pop("bbox")
+            # cls, bbox = pbatch.pop("cls"), pbatch.pop("bbox")
+            cls, bbox, dist = pbatch.pop("cls"), pbatch.pop("bbox"), pbatch.pop("dist") # HWCHU. dist 추가
             nl = len(cls)
             stat["target_cls"] = cls
             stat["target_img"] = cls.unique()
+
             if npr == 0:
                 if nl:
                     for k in self.stats.keys():

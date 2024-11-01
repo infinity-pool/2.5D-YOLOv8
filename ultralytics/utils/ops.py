@@ -425,13 +425,15 @@ def non_max_suppression_2_5(
         # Detections matrix nx6 (xyxy, conf, cls)
         box, cls, mask = x.split((4, nc, nm), 1)
 
-        if multi_label:
+        if multi_label: # HWCHU. 여긴 validator의 postprocess내에서 호출되었을 때 True로 들어옴.
             i, j = torch.where(cls > conf_thres)
             x = torch.cat((box[i], x[i, 4 + j, None], j[:, None].float(), mask[i]), 1)
+            y_d = y_d[i] # HWCHU. 같은 기준으로 y_d도 걸러줌
         else:  # best class only
             conf, j = cls.max(1, keepdim=True)
             x = torch.cat((box, conf, j.float(), mask), 1)[conf.view(-1) > conf_thres] # HWCHU. i.e. shape(51, 6)
-
+            y_d = y_d[conf.view(-1) > conf_thres] # HWCHU. 같은 기준으로 y_d도 걸러줌
+        
         # Filter by class
         if classes is not None:
             x = x[(x[:, 5:6] == classes).any(1)]

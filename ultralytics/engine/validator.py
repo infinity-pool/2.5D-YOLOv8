@@ -35,6 +35,8 @@ from ultralytics.utils.checks import check_imgsz
 from ultralytics.utils.ops import Profile
 from ultralytics.utils.torch_utils import de_parallel, select_device, smart_inference_mode
 
+from ultralytics.nn.tasks import DetectionModel_2_5 # HWCHU. 별도 처리를 위한 코드
+
 
 class BaseValidator:
     """
@@ -174,7 +176,7 @@ class BaseValidator:
                 batch = self.preprocess(batch)
 
             # Inference
-            with dt[1]:
+            with dt[1]: # HWCHU. 원래 validate 시엔 원래 y, x인데 지금은 y, x, y_dist, x_dist가 들어온다.
                 preds = model(batch["img"], augment=augment)
 
             # Loss
@@ -186,7 +188,7 @@ class BaseValidator:
             with dt[3]:
                 preds = self.postprocess(preds)
 
-            self.update_metrics(preds, batch)
+            self.update_metrics(preds, batch) ### HWCHU. 여기로 들어가는 preds는 preds, preds_dists로 두 개 들어감.
             if self.args.plots and batch_i < 3:
                 self.plot_val_samples(batch, batch_i)
                 self.plot_predictions(batch, preds, batch_i)
@@ -201,6 +203,8 @@ class BaseValidator:
         if self.training:
             model.float()
             results = {**stats, **trainer.label_loss_items(self.loss.cpu() / len(self.dataloader), prefix="val")}
+            if isinstance(model, DetectionModel_2_5): # HWCHU. DetectionModel_2_5를 training할 땐, fitness+dist_loss를 fitness로 간주하자!
+                results['fitness'] += results['val/dist_loss']
             return {k: round(float(v), 5) for k, v in results.items()}  # return results as 5 decimal place floats
         else:
             LOGGER.info(
