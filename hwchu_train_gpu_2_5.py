@@ -1,11 +1,17 @@
 from ultralytics import YOLO
 import cv2
 
-model_path = 'yolov8m.pt'
-model = YOLO("yolov8m_2_5.yaml", task="detect_2_5").load(model_path)
+model_path = 'yolov8n.pt'
+model = YOLO("yolov8n_2_5.yaml", task="detect_2_5").load(model_path)
 device = 'cuda'
 
-results = model.train(epochs=50, device=device, data="nuScenes_2_5 copy.yaml", save_dir="/root/data/hwchu/yolov8_results", workers=0) # nuScenes_2_5.yaml training
+results = model.train(epochs=30,
+    device=device,
+    data="nuScenes_2_5.yaml",
+    project='yolov8_2_5',
+    # save_dir="/root/data/hwchu/yolov8_results",
+    # workers=0
+    ) # nuScenes_2_5.yaml training
 # results = model.train(epochs=5, device=device, data="coco8.yaml") # coco8.yaml training
 
 # print('[results[0].boxes.data.shape]')
