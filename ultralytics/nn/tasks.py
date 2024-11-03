@@ -101,7 +101,6 @@ class BaseModel(nn.Module):
         """
         if isinstance(x, dict):  # for cases of training and validating while training.
             return self.loss(x, *args, **kwargs)
-        print('ultralytics.nn.tasks.py의 BaseModel에서 forward 불리고 self.predict 수행..') # HWCHU. BaseModel의 forward가 어떤 일을 하고 있는지 알기 위함.
         return self.predict(x, *args, **kwargs)
 
     def predict(self, x, profile=False, visualize=False, augment=False, embed=None):
@@ -501,7 +500,6 @@ class DetectionModel_2_5(BaseModel):
             batch (dict): Batch to compute loss on
             preds (torch.Tensor | List[torch.Tensor]): Predictions.
         """
-        print("DetectionModel_2_5's loss() called!!") # HWCHU
         if getattr(self, "criterion", None) is None:
             self.criterion = self.init_criterion()
         

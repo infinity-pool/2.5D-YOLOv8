@@ -204,7 +204,7 @@ class BaseValidator:
             model.float()
             results = {**stats, **trainer.label_loss_items(self.loss.cpu() / len(self.dataloader), prefix="val")}
             if isinstance(model, DetectionModel_2_5): # HWCHU. DetectionModel_2_5를 training할 땐, fitness+dist_loss를 fitness로 간주하자!
-                results['fitness'] += results['val/dist_loss']
+                results['fitness'] -= results['val/dist_loss']
             return {k: round(float(v), 5) for k, v in results.items()}  # return results as 5 decimal place floats
         else:
             LOGGER.info(

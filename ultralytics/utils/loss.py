@@ -125,9 +125,6 @@ class DistLoss(nn.Module):
 
         # HWCHU. 우선 MSE Loss로 loss 계산. loss 함수에 대한 부분 더 고민해야함.
         # HWCHU. new version
-        print(f'pred_dists : {pred_dists}')
-        print(f'target_dists : {target_dists}')
-        print()
         loss_dist = (pred_dists - target_dists) ** 2
         loss_dist = loss_dist.mean()
 
@@ -430,12 +427,7 @@ class v8DetectionLoss_2_5:
         loss[2] *= self.hyp.dfl  # dfl gain
         loss[3] *= self.hyp.dist # HWCHU. dist gain
 
-        print(loss)
-        print(self.hyp.box)
-        print(self.hyp.cls)
-        print(self.hyp.dfl)
-        print(self.hyp.dist)
-        # exit()
+        print(f'{loss} - [{self.hyp.box} {self.hyp.cls} {self.hyp.dfl} {self.hyp.dist}]')
 
         return loss.sum() * batch_size, loss.detach()  # loss(box, cls, dfl, dist) # HWCHU. dist loss 추가
 

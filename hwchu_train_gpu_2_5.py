@@ -24,9 +24,9 @@ saved_best_model = YOLO(f'{results.save_dir}/weights/best.pt')
 inference_results = saved_best_model('../datasets/nuScenes_2_5/images/val/n008-2018-08-30-15-31-50-0400__CAM_BACK__1535657649037558.jpg')
 
 '''결과 파일로 저장'''
-with open("result_2_5_train.txt", "w") as file:
+with open(f"{results.save_dir}/result_2_5_train.txt", "w") as file:
     file.write(str(inference_results[0].boxes))
 
 '''Visualize'''
 plots = inference_results[0].plot(show=False)
-cv2.imwrite('result_2_5_train.jpg', plots)
+cv2.imwrite(f'{results.save_dir}/result_2_5_train.jpg', plots)
