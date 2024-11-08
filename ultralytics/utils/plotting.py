@@ -1301,6 +1301,8 @@ def plot_tune_results(csv_file="tune_results.csv"):
 
 def output_to_target(output, max_det=300):
     """Convert model output to target format [batch_id, class_id, x, y, w, h, conf] for plotting."""
+    if isinstance(output, (list, tuple)): # HWCHU. preds, preds_dists가 들어오는 경우 처리
+        output = output[0] # HWCHU.
     targets = []
     for i, o in enumerate(output):
         box, conf, cls = o[:max_det, :6].cpu().split((4, 1, 1), 1)

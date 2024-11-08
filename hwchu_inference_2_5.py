@@ -1,10 +1,16 @@
 from ultralytics import YOLO
 import cv2
 
-model_path = 'yolov8m.pt'
+# model_path = 'yolov8m.pt'
 # best_model = YOLO("yolov8m_2_5.yaml", task="detect_2_5").load(model_path) # TEST on detect pt model
 
-best_model = YOLO('./runs/detect_2_5/train/weights/best.pt')
+train_dir = 'train3'
+try:
+    train_idx = int(train_dir[5:])
+except:
+    train_idx = 1
+
+best_model = YOLO(f'./yolov8_2_5/{train_dir}/weights/best.pt')
 
 print('- [FOR Inference]')
 # results = best_model('./ultralytics/assets/bus.jpg')
@@ -22,7 +28,7 @@ print(results[0].dists.data.shape)
 print(results[0].dists.data)
 
 '''결과 파일로 저장'''
-with open("result_2_5_inf.txt", "w") as file:
+with open(f"./hwchu_best_model_inf_result/{train_dir}/result_2_5_inf[{train_idx}].txt", "w") as file:
     file.write('[BOXES]\n')
     file.write(str(results[0].boxes) + '\n\n')
     file.write('[DISTS]\n')
@@ -30,6 +36,6 @@ with open("result_2_5_inf.txt", "w") as file:
 
 '''Visualize'''
 plots = results[0].plot(show=False)
-cv2.imwrite('result_2_5_inf.jpg', plots)
+cv2.imwrite(f'./hwchu_best_model_inf_result/{train_dir}/result_2_5_inf[{train_idx}].jpg', plots)
 
 print('<<hwchu_inference_2_5 FINISH!>>')

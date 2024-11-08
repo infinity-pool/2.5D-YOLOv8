@@ -182,7 +182,11 @@ class BaseValidator:
             # Loss
             with dt[2]:
                 if self.training:
-                    self.loss += model.loss(batch, preds)[1]
+                    # self.loss += model.loss(batch, preds)[1]
+                    loss_result = model.loss(batch, preds)[1] # HWCHU. 하나로 뭉쳐서 나눠 부르기
+                    self.loss += loss_result[1] # HWCHU. 위에 코드와 수행 동일
+                    if isinstance(model, DetectionModel_2_5): # HWCHU.
+                        self.abs_rel = loss_result[2] # HWCHU. 최대 거리가 100이라 100 곱함.
 
             # Postprocess
             with dt[3]:
@@ -204,7 +208,8 @@ class BaseValidator:
             model.float()
             results = {**stats, **trainer.label_loss_items(self.loss.cpu() / len(self.dataloader), prefix="val")}
             if isinstance(model, DetectionModel_2_5): # HWCHU. DetectionModel_2_5를 training할 땐, fitness+dist_loss를 fitness로 간주하자!
-                results['fitness'] -= results['val/dist_loss']
+                # results['fitness'] -= results['val/dist_loss']
+                results['fitness'] -= self.abs_rel
             return {k: round(float(v), 5) for k, v in results.items()}  # return results as 5 decimal place floats
         else:
             LOGGER.info(

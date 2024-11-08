@@ -365,6 +365,7 @@ class DetectionValidator_2_5(BaseValidator):
         self.args.task = "detect_2_5" # HWCHU. task 변경
         # self.metrics = DetMetrics(save_dir=self.save_dir, on_plot=self.on_plot)
         self.metrics = DetMetrics_2_5(save_dir=self.save_dir, on_plot=self.on_plot) # HWCHU. metric을 DetMetrics_2_5로 수정
+        self.abs_rel = None # HWCHU. abs_rel 정의
         self.iouv = torch.linspace(0.5, 0.95, 10)  # IoU vector for mAP@0.5:0.95
         self.niou = self.iouv.numel()
         self.lb = []  # for autolabelling
@@ -416,7 +417,8 @@ class DetectionValidator_2_5(BaseValidator):
 
     def get_desc(self):
         """Return a formatted string summarizing class metrics of YOLO model."""
-        return ("%22s" + "%11s" * 6) % ("Class", "Images", "Instances", "Box(P", "R", "mAP50", "mAP50-95)")
+        # return ("%22s" + "%11s" * 6) % ("Class", "Images", "Instances", "Box(P", "R", "mAP50", "mAP50-95)")
+        return ("%22s" + "%11s" * 7) % ("Class", "Images", "Instances", "Box(P", "R", "mAP50", "mAP50-95)", "AbsRel") # HWCHU. AbsRel까지 출력하기 위함
 
     def postprocess(self, preds):
         """Apply Non-maximum suppression to prediction outputs."""
@@ -462,7 +464,7 @@ class DetectionValidator_2_5(BaseValidator):
         )  # native-space pred
         return predn
 
-    def update_metrics(self, preds, batch): # HWCHU. preds로 preds, preds_dists 들어옴
+    def update_metrics(self, preds, batch): # HWCHU. preds로 preds, preds_dists 들어옴. 이거는 non_max_suppression_2_5 지나서 나온 preds, preds_dists임.
         preds_dists = preds[1] # HWCHU. 처리
         preds = preds[0] # HWCHU. 처리
 
@@ -480,8 +482,9 @@ class DetectionValidator_2_5(BaseValidator):
             # cls, bbox = pbatch.pop("cls"), pbatch.pop("bbox")
             cls, bbox, dist = pbatch.pop("cls"), pbatch.pop("bbox"), pbatch.pop("dist") # HWCHU. dist 추가
             nl = len(cls)
-            stat["target_cls"] = cls
+            stat["target_cls"] = cls # HWCHU. ex) (1)
             stat["target_img"] = cls.unique()
+            stat["target_dist"] = dist # HWCHU. stat에 batch에서 나온 "target_dist" key 추가 ex) (1)
 
             if npr == 0:
                 if nl:
@@ -496,7 +499,8 @@ class DetectionValidator_2_5(BaseValidator):
                 pred[:, 5] = 0
             predn = self._prepare_pred(pred, pbatch)
             stat["conf"] = predn[:, 4]
-            stat["pred_cls"] = predn[:, 5]
+            stat["pred_cls"] = predn[:, 5] # HWCHU. ex) (300)
+            stat["pred_dist"] = preds_dist[:, 0] # HWCHU. stat에 preds에서 나온 "pred_dist" key 추가 ex) (300)
 
             # Evaluate
             if nl:
@@ -535,7 +539,9 @@ class DetectionValidator_2_5(BaseValidator):
     def print_results(self):
         """Prints training/validation set metrics per class."""
         pf = "%22s" + "%11i" * 2 + "%11.3g" * len(self.metrics.keys)  # print format
-        LOGGER.info(pf % ("all", self.seen, self.nt_per_class.sum(), *self.metrics.mean_results()))
+        pf_abs_rel = "%22s" + "%11i" * 2 + "%11.3g" * (len(self.metrics.keys) + 1)  # HWCHU. print format. AbsRel 추가
+        # LOGGER.info(pf % ("all", self.seen, self.nt_per_class.sum(), *self.metrics.mean_results()))
+        LOGGER.info(pf_abs_rel % ("all", self.seen, self.nt_per_class.sum(), *self.metrics.mean_results(), self.abs_rel)) # HWCHU. AbsRel 추가
         if self.nt_per_class.sum() == 0:
             LOGGER.warning(f"WARNING ⚠️ no labels found in {self.args.task} set, can not compute metrics without labels")
 

@@ -53,6 +53,8 @@ from ultralytics.utils.torch_utils import (
     torch_distributed_zero_first,
 )
 
+from ultralytics.nn.tasks import DetectionModel_2_5 # HWCHU. 별도 처리를 위한 코드
+
 
 class BaseTrainer:
     """
@@ -382,7 +384,11 @@ class BaseTrainer:
                 # Forward
                 with autocast(self.amp):
                     batch = self.preprocess_batch(batch)
-                    self.loss, self.loss_items = self.model(batch) # HWCHU. loss 계산 부분
+                    # self.loss, self.loss_items = self.model(batch)
+                    if isinstance(self.model, DetectionModel_2_5): # HWCHU. detect_2_5를 위한 처리
+                        self.loss, self.loss_items = self.model(batch)[:2]
+                    else:
+                        self.loss, self.loss_items = self.model(batch)
                     if RANK != -1:
                         self.loss *= world_size
                     self.tloss = (
