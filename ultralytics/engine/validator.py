@@ -204,6 +204,10 @@ class BaseValidator:
         self.finalize_metrics()
         self.print_results()
         self.run_callbacks("on_val_end")
+
+        if isinstance(model, DetectionModel_2_5): # HWCHU.
+            stats['metrics/AbsRel'] = self.abs_rel
+
         if self.training:
             model.float()
             results = {**stats, **trainer.label_loss_items(self.loss.cpu() / len(self.dataloader), prefix="val")}

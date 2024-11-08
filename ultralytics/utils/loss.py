@@ -450,7 +450,7 @@ class v8DetectionLoss_2_5:
         loss[2] *= self.hyp.dfl  # dfl gain
         loss[3] *= self.hyp.dist # HWCHU. dist gain
 
-        print(f'{loss} - [{self.hyp.box} {self.hyp.cls} {self.hyp.dfl} {self.hyp.dist}]')
+        # print(f'{loss} - [{self.hyp.box} {self.hyp.cls} {self.hyp.dfl} {self.hyp.dist}]')
 
         return loss.sum() * batch_size, loss.detach(), abs_rel  # loss(box, cls, dfl, dist) # HWCHU. abs_rel 추가
 
