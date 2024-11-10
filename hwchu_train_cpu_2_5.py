@@ -1,8 +1,8 @@
 from ultralytics import YOLO
 import cv2
 
-model_path = 'yolov8m.pt'
-model = YOLO("yolov8m_2_5.yaml", task="detect_2_5").load(model_path)
+model_path = 'yolov8s.pt'
+model = YOLO("yolov8s_2_5.yaml", task="detect_2_5").load(model_path)
 device = 'cpu'
 
 results = model.train(epochs=100, device=device, data="nuScenes_2_5.yaml") # nuScenes_2_5.yaml training

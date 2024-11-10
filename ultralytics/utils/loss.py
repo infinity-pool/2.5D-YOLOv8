@@ -121,10 +121,6 @@ class DistLoss(nn.Module):
         super().__init__()
 
     def forward(self, pred_dists, target_dists, target_scores, target_scores_sum, fg_mask):
-        """IoU loss."""
-
-        # HWCHU. 우선 MSE Loss로 loss 계산. loss 함수에 대한 부분 더 고민해야함.
-        # HWCHU. new version
         loss_dist = (pred_dists[fg_mask] - target_dists[fg_mask]) ** 2
         loss_dist = loss_dist.mean()
 
@@ -143,6 +139,22 @@ class AbsRel(nn.Module):
 
         # HWCHU. AbsRel 계산
         abs_rel = torch.mean(torch.abs(pred_dists[fg_mask] - target_dists[fg_mask]) / target_dists[fg_mask])
+
+        return abs_rel
+
+
+'''HWCHU. DistMAE(nn.Module)'''
+class DistMAE(nn.Module):
+    """Criterion class for computing training losses during training."""
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, pred_dists, target_dists, target_scores, target_scores_sum, fg_mask):
+        """IoU loss."""
+
+        # HWCHU. AbsRel 계산
+        abs_rel = torch.mean(torch.abs(pred_dists[fg_mask] - target_dists[fg_mask]))
 
         return abs_rel
 
@@ -317,6 +329,7 @@ class v8DetectionLoss_2_5:
         self.bbox_loss = BboxLoss(m.reg_max).to(device)
         self.dist_loss = DistLoss().to(device) # HWCHU.
         self.abs_rel_error = AbsRel().to(device) # HWCHU. validate 시 metric인 abs_rel 계산. with torch.no_grad와 사용
+        self.dist_mae = DistMAE().to(device) # HWCHU. validate 시 metric인 MAE 계산. with torch.no_grad와 사용
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
 
     def preprocess(self, targets, batch_size, scale_tensor):
@@ -443,6 +456,9 @@ class v8DetectionLoss_2_5:
             abs_rel = self.abs_rel_error(
                 pred_dists, target_dists, target_scores, target_scores_sum, fg_mask
             )
+            dist_mae = self.dist_mae(
+                pred_dists, target_dists, target_scores, target_scores_sum, fg_mask
+            )
 
 
         loss[0] *= self.hyp.box  # box gain
@@ -452,7 +468,7 @@ class v8DetectionLoss_2_5:
 
         # print(f'{loss} - [{self.hyp.box} {self.hyp.cls} {self.hyp.dfl} {self.hyp.dist}]')
 
-        return loss.sum() * batch_size, loss.detach(), abs_rel  # loss(box, cls, dfl, dist) # HWCHU. abs_rel 추가
+        return loss.sum() * batch_size, loss.detach(), abs_rel, dist_mae  # loss(box, cls, dfl, dist) # HWCHU. abs_rel 추가
 
 
 class v8SegmentationLoss(v8DetectionLoss):

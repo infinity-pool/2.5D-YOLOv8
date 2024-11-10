@@ -186,7 +186,8 @@ class BaseValidator:
                     loss_result = model.loss(batch, preds)[1] # HWCHU. 하나로 뭉쳐서 나눠 부르기
                     self.loss += loss_result[1] # HWCHU. 위에 코드와 수행 동일
                     if isinstance(model, DetectionModel_2_5): # HWCHU.
-                        self.abs_rel = loss_result[2] # HWCHU. 최대 거리가 100이라 100 곱함.
+                        self.abs_rel = loss_result[2] # HWCHU.
+                        self.dist_mae = loss_result[3] # HWCHU.
 
             # Postprocess
             with dt[3]:
@@ -207,6 +208,7 @@ class BaseValidator:
 
         if isinstance(model, DetectionModel_2_5): # HWCHU.
             stats['metrics/AbsRel'] = self.abs_rel
+            stats['metrics/DistMAE'] = self.dist_mae
 
         if self.training:
             model.float()

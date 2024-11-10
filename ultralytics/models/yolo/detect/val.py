@@ -366,6 +366,7 @@ class DetectionValidator_2_5(BaseValidator):
         # self.metrics = DetMetrics(save_dir=self.save_dir, on_plot=self.on_plot)
         self.metrics = DetMetrics_2_5(save_dir=self.save_dir, on_plot=self.on_plot) # HWCHU. metric을 DetMetrics_2_5로 수정
         self.abs_rel = None # HWCHU. abs_rel 정의
+        self.dist_mae = None # HWCHU. dist_mae 정의
         self.iouv = torch.linspace(0.5, 0.95, 10)  # IoU vector for mAP@0.5:0.95
         self.niou = self.iouv.numel()
         self.lb = []  # for autolabelling
@@ -418,7 +419,7 @@ class DetectionValidator_2_5(BaseValidator):
     def get_desc(self):
         """Return a formatted string summarizing class metrics of YOLO model."""
         # return ("%22s" + "%11s" * 6) % ("Class", "Images", "Instances", "Box(P", "R", "mAP50", "mAP50-95)")
-        return ("%22s" + "%11s" * 7) % ("Class", "Images", "Instances", "Box(P", "R", "mAP50", "mAP50-95)", "AbsRel") # HWCHU. AbsRel까지 출력하기 위함
+        return ("%22s" + "%11s" * 8) % ("Class", "Images", "Instances", "Box(P", "R", "mAP50", "mAP50-95)", "AbsRel", "DistMAE") # HWCHU. AbsRel, DistMAE까지 출력하기 위함
 
     def postprocess(self, preds):
         """Apply Non-maximum suppression to prediction outputs."""
@@ -539,9 +540,9 @@ class DetectionValidator_2_5(BaseValidator):
     def print_results(self):
         """Prints training/validation set metrics per class."""
         pf = "%22s" + "%11i" * 2 + "%11.3g" * len(self.metrics.keys)  # print format
-        pf_abs_rel = "%22s" + "%11i" * 2 + "%11.3g" * (len(self.metrics.keys) + 1)  # HWCHU. print format. AbsRel 추가
+        pf_abs_rel_dist_mae = "%22s" + "%11i" * 2 + "%11.3g" * (len(self.metrics.keys) + 2)  # HWCHU. print format. AbsRel, DistMAE 추가
         # LOGGER.info(pf % ("all", self.seen, self.nt_per_class.sum(), *self.metrics.mean_results()))
-        LOGGER.info(pf_abs_rel % ("all", self.seen, self.nt_per_class.sum(), *self.metrics.mean_results(), self.abs_rel)) # HWCHU. AbsRel 추가
+        LOGGER.info(pf_abs_rel_dist_mae % ("all", self.seen, self.nt_per_class.sum(), *self.metrics.mean_results(), self.abs_rel, self.dist_mae)) # HWCHU. AbsRel 추가
         if self.nt_per_class.sum() == 0:
             LOGGER.warning(f"WARNING ⚠️ no labels found in {self.args.task} set, can not compute metrics without labels")
 

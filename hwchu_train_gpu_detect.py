@@ -2,18 +2,18 @@ from ultralytics import YOLO
 import cv2
 
 m_scale = 's'
-epochs = 30
+epochs = 40
 
 model_path = f'yolov8{m_scale}.pt'
-model = YOLO(f"yolov8{m_scale}_2_5.yaml", task="detect_2_5").load(model_path)
+model = YOLO(model_path)
 device = 'cuda'
 
 results = model.train(epochs=epochs,
     device=device,
     data="nuScenes_2_5.yaml",
-    project='yolov8_2_5',
+    project='yolov8',
     # save_dir="/root/data/hwchu/yolov8_results",
-    # workers=0
+    workers=0
     )
 
 saved_best_model = YOLO(f'{results.save_dir}/weights/best.pt')

@@ -172,4 +172,5 @@ pnnx*
 calibration_*.npy
 
 
-nohup.out
+nohup*.out
+/yolov8
