@@ -10,7 +10,7 @@ from ultralytics.data import build_dataloader, build_yolo_dataset, converter
 from ultralytics.engine.validator import BaseValidator
 from ultralytics.utils import LOGGER, ops
 from ultralytics.utils.checks import check_requirements
-from ultralytics.utils.metrics import ConfusionMatrix, DetMetrics, DetMetrics_2_5, box_iou # HWCHU. DetMetrics_2_5 추가
+from ultralytics.utils.metrics import ConfusionMatrix, DetMetrics, DetMetrics_2_5, DistMetrics_2_5, box_iou # HWCHU. DetMetrics_2_5, DistMetrics_2_5 추가
 from ultralytics.utils.plotting import output_to_target, plot_images
 
 
@@ -365,8 +365,9 @@ class DetectionValidator_2_5(BaseValidator):
         self.args.task = "detect_2_5" # HWCHU. task 변경
         # self.metrics = DetMetrics(save_dir=self.save_dir, on_plot=self.on_plot)
         self.metrics = DetMetrics_2_5(save_dir=self.save_dir, on_plot=self.on_plot) # HWCHU. metric을 DetMetrics_2_5로 수정
-        self.abs_rel = None # HWCHU. abs_rel 정의
-        self.dist_mae = None # HWCHU. dist_mae 정의
+        # self.abs_rel = None # HWCHU. abs_rel 정의
+        # self.dist_mae = None # HWCHU. dist_mae 정의
+        self.dist_metrics = DistMetrics_2_5() # HWCHU. dist와 관련한 metric을 표현하기 위한 class
         self.iouv = torch.linspace(0.5, 0.95, 10)  # IoU vector for mAP@0.5:0.95
         self.niou = self.iouv.numel()
         self.lb = []  # for autolabelling
@@ -505,7 +506,11 @@ class DetectionValidator_2_5(BaseValidator):
 
             # Evaluate
             if nl:
-                stat["tp"] = self._process_batch(predn, bbox, cls)
+                # stat["tp"] = self._process_batch(predn, bbox, cls)
+                stat["tp"], matched_distances = self._process_batch(predn, bbox, cls, preds_dist[:, 0], dist) # HWCHU. preds_dist, dist 추가. 리턴으로 matced_distances : iou threshold 0.5:0.95에 따른 페어
+                import math # HWCHU
+                self.dist_metrics.update_dist_metrics(matched_distances[math.ceil((self.args.iou - 0.5)/0.05)]) # HWCHU. distance 관련 metric 업데이트
+
                 if self.args.plots:
                     self.confusion_matrix.process_batch(predn, bbox, cls)
             for k in self.stats.keys():
@@ -542,7 +547,8 @@ class DetectionValidator_2_5(BaseValidator):
         pf = "%22s" + "%11i" * 2 + "%11.3g" * len(self.metrics.keys)  # print format
         pf_abs_rel_dist_mae = "%22s" + "%11i" * 2 + "%11.3g" * (len(self.metrics.keys) + 2)  # HWCHU. print format. AbsRel, DistMAE 추가
         # LOGGER.info(pf % ("all", self.seen, self.nt_per_class.sum(), *self.metrics.mean_results()))
-        LOGGER.info(pf_abs_rel_dist_mae % ("all", self.seen, self.nt_per_class.sum(), *self.metrics.mean_results(), self.abs_rel, self.dist_mae)) # HWCHU. AbsRel 추가
+        # LOGGER.info(pf_abs_rel_dist_mae % ("all", self.seen, self.nt_per_class.sum(), *self.metrics.mean_results(), self.abs_rel, self.dist_mae)) # HWCHU. AbsRel 추가
+        LOGGER.info(pf_abs_rel_dist_mae % ("all", self.seen, self.nt_per_class.sum(), *self.metrics.mean_results(), self.dist_metrics.abs_rel, self.dist_metrics.dist_mae)) # HWCHU. AbsRel 추가
         if self.nt_per_class.sum() == 0:
             LOGGER.warning(f"WARNING ⚠️ no labels found in {self.args.task} set, can not compute metrics without labels")
 
@@ -559,7 +565,8 @@ class DetectionValidator_2_5(BaseValidator):
                     save_dir=self.save_dir, names=self.names.values(), normalize=normalize, on_plot=self.on_plot
                 )
 
-    def _process_batch(self, detections, gt_bboxes, gt_cls):
+    # def _process_batch(self, detections, gt_bboxes, gt_cls):
+    def _process_batch(self, detections, gt_bboxes, gt_cls, dist_detections, gt_dist): # HWCHU. dist_detections, gt_dist 추가
         """
         Return correct prediction matrix.
 
@@ -578,7 +585,7 @@ class DetectionValidator_2_5(BaseValidator):
             intermediate representation used for evaluating predictions against ground truth.
         """
         iou = box_iou(gt_bboxes, detections[:, :4])
-        return self.match_predictions(detections[:, 5], gt_cls, iou)
+        return self.match_predictions(detections[:, 5], gt_cls, iou, pred_dists=dist_detections, true_dists=gt_dist) # HWCHU. (tp, matched_distances). 여기에는 tp 뿐 아니라, matched_distances 리스트도 같이 리턴됨. 각 threshold에 맞는 매칭 튜플(pred_dist, true_dist)... 들이 든 10개(0.5~0.95) 리스트
 
     def build_dataset(self, img_path, mode="val", batch=None):
         """

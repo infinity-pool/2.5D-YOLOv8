@@ -12,6 +12,7 @@ except:
     train_idx = 1
 
 best_model = YOLO(f'./yolov8_2_5/{train_dir}/weights/best.pt')
+# best_model = YOLO(f'./best(s,train11).pt')
 
 print('- [FOR Inference]')
 # results = best_model('./ultralytics/assets/bus.jpg')

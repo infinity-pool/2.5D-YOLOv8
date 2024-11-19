@@ -995,6 +995,30 @@ class DetMetrics_2_5(SimpleClass):
         return self.box.curves_results
 
 
+## HWCHU. DistMetrics_2_5(SimpleClass)
+class DistMetrics_2_5(SimpleClass):
+    def __init__(self) -> None:
+        self.abs_rel = 0
+        self.dist_mae = 0
+        self.count = 0 # how many pairs for calculate metrics?
+    
+    def update_dist_metrics(self, matched_distances):
+        if len(matched_distances) == 0:
+            return
+        
+        abs_rel_sum = self.abs_rel * self.count
+        abs_error_sum = self.dist_mae * self.count
+        self.count += len(matched_distances)
+
+        for pred_dist, target_dist in matched_distances:
+            abs_rel_sum += abs(pred_dist - target_dist) / target_dist
+            abs_error_sum += abs(pred_dist - target_dist)
+        self.abs_rel = abs_rel_sum / self.count
+        self.dist_mae = abs_error_sum / self.count
+                
+        
+
+
 class SegmentMetrics(SimpleClass):
     """
     Calculates and aggregates detection and segmentation metrics over a given set of classes.
